@@ -15,6 +15,8 @@ interface MapViewProps {
   tileUrl: string
   waypoints: MapWaypoint[]
   onSelect: (waypointId: string) => void
+  // Hands back the Leaflet instance so the parent can drive it (e.g. recenter).
+  onMapReady?: (map: L.Map) => void
   className?: string
 }
 
@@ -40,7 +42,14 @@ function resolveTileUrl(tileUrl: string | undefined): string {
  * user_waypoint_progress.status. Live position/distance are computed client-side
  * elsewhere and generate no backend traffic.
  */
-export function MapView({ center, tileUrl, waypoints, onSelect, className }: MapViewProps) {
+export function MapView({
+  center,
+  tileUrl,
+  waypoints,
+  onSelect,
+  onMapReady,
+  className,
+}: MapViewProps) {
   const resolvedUrl = resolveTileUrl(tileUrl)
   return (
     <MapContainer
@@ -60,8 +69,19 @@ export function MapView({ center, tileUrl, waypoints, onSelect, className }: Map
       ))}
       <FitToWaypoints waypoints={waypoints} center={center} />
       <InvalidateOnMount />
+      {onMapReady && <MapReady onReady={onMapReady} />}
     </MapContainer>
   )
+}
+
+function MapReady({ onReady }: { onReady: (map: L.Map) => void }) {
+  const map = useMap()
+  // Block body: must NOT return onReady()'s value — React would treat a truthy
+  // return as an effect cleanup function and call it on unmount.
+  useEffect(() => {
+    onReady(map)
+  }, [map, onReady])
+  return null
 }
 
 function WaypointMarker({
