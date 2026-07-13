@@ -3,6 +3,7 @@ import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { WaypointInMission } from '../types/api'
+import { resolveTileUrl } from '../lib/mapTiles'
 import { STATUS_COLOR, type WaypointStatus } from './waypointStatus'
 
 export interface MapWaypoint extends WaypointInMission {
@@ -18,21 +19,6 @@ interface MapViewProps {
   // Hands back the Leaflet instance so the parent can drive it (e.g. recenter).
   onMapReady?: (map: L.Map) => void
   className?: string
-}
-
-// Dev/QA fallback when a city's tile_url is missing or a seed placeholder
-// (e.g. the "tiles.example.com" seed values). Override with a real keyed
-// provider via VITE_MAP_TILE_URL. Public OSM is fine for low-volume dev only
-// (spec §10 — don't use it at production volume).
-const FALLBACK_TILE_URL =
-  import.meta.env.VITE_MAP_TILE_URL ?? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-
-/** A tile_url is usable only if it's a real {z}/{x}/{y} template on a live host. */
-function resolveTileUrl(tileUrl: string | undefined): string {
-  if (!tileUrl || !tileUrl.includes('{z}') || tileUrl.includes('example.com')) {
-    return FALLBACK_TILE_URL
-  }
-  return tileUrl
 }
 
 /**

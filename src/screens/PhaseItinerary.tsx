@@ -43,8 +43,7 @@ export function PhaseItinerary() {
     )
   }
 
-  const activePhase =
-    mission.phases.find((p) => p.id === selectedPhaseId) ?? mission.phases[0]
+  const activePhase = mission.phases.find((p) => p.id === selectedPhaseId) ?? mission.phases[0]
 
   const center: [number, number] = city
     ? [city.center_lat, city.center_lng]
@@ -172,10 +171,7 @@ export function PhaseItinerary() {
                 <ul className="flex flex-col pb-2">
                   {phase.waypoints.map((w) => (
                     <li key={w.id}>
-                      <WaypointListItem
-                        waypoint={w}
-                        onClick={() => setSelectedWaypointId(w.id)}
-                      />
+                      <WaypointListItem waypoint={w} onClick={() => setSelectedWaypointId(w.id)} />
                     </li>
                   ))}
                   {phase.waypoints.length === 0 && (
