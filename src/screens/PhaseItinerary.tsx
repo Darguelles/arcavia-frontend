@@ -106,7 +106,7 @@ export function PhaseItinerary() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-5 pt-[max(12px,env(safe-area-inset-top))]">
         <button
           type="button"
-          onClick={() => navigate(`/missions/${mission.id}`)}
+          onClick={() => navigate(-1)}
           aria-label="Volver"
           className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-ink-card text-cream ${CONTROL_SHADOW}`}
         >
