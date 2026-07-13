@@ -2,6 +2,7 @@ import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom'
 import { RedirectIfAuthed, RequireAuth } from './guards'
 import { LoadingState } from '../components/states'
+import { RouteError } from '../components/RouteError'
 
 /**
  * Route map (spec §5) with route-level code splitting (§13): the heavy
@@ -49,6 +50,7 @@ const publicOnly = (node: ReactNode) => <RedirectIfAuthed>{node}</RedirectIfAuth
 const router = createBrowserRouter([
   {
     element: <SuspenseLayout />,
+    errorElement: <RouteError />,
     children: [
       // ---- Public ----
       { path: '/', element: <Home /> },

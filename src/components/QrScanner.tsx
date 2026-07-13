@@ -1,11 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Html5Qrcode } from 'html5-qrcode'
+import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode'
 import { SecondaryButton } from './SecondaryButton'
 
 interface QrScannerProps {
   onDecode: (text: string) => void
   onError?: (message: string) => void
 }
+
+const RUNNING = [Html5QrcodeScannerState.SCANNING, Html5QrcodeScannerState.PAUSED]
 
 /**
  * Live QR decoder (spec §9). Uses html5-qrcode (never BarcodeDetector alone —
@@ -20,20 +22,45 @@ export function QrScanner({ onDecode, onError }: QrScannerProps) {
   const [status, setStatus] = useState<'starting' | 'scanning' | 'error'>('starting')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Latest callbacks via refs so the camera effect can run ONCE (on mount) and
+  // never restart when the parent re-creates its handlers — restart churn is a
+  // main cause of "error opening the camera".
+  const onDecodeRef = useRef(onDecode)
+  const onErrorRef = useRef(onError)
+  onDecodeRef.current = onDecode
+  onErrorRef.current = onError
+
   useEffect(() => {
-    let cancelled = false
     const scanner = new Html5Qrcode(regionId, { verbose: false })
     scannerRef.current = scanner
+    let startPromise: Promise<void> | null = null
+    let tornDown = false
+
+    // html5-qrcode's stop() THROWS synchronously if it isn't running yet, so we
+    // (a) wait for start() to settle before stopping and (b) only stop from a
+    // running state, wrapping everything so teardown can never throw. This is
+    // what makes StrictMode's mount→cleanup→mount cycle safe.
+    const teardown = async () => {
+      if (tornDown) return
+      tornDown = true
+      try {
+        await startPromise?.catch(() => {})
+        if (scannerRef.current && RUNNING.includes(scanner.getState())) {
+          await scanner.stop()
+        }
+      } catch {
+        // already stopped / never started — ignore
+      }
+    }
 
     const handleSuccess = (decodedText: string) => {
       if (decodedRef.current) return
       decodedRef.current = true
-      // Stop before handing off so the camera light turns off promptly.
-      scanner.stop().catch(() => {})
-      onDecode(decodedText)
+      void teardown() // turn the camera off promptly
+      onDecodeRef.current(decodedText)
     }
 
-    scanner
+    startPromise = scanner
       .start(
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 240, height: 240 } },
@@ -41,39 +68,37 @@ export function QrScanner({ onDecode, onError }: QrScannerProps) {
         () => {} // per-frame decode failures are noise — ignore
       )
       .then(() => {
-        if (!cancelled) setStatus('scanning')
+        if (!tornDown) setStatus('scanning')
       })
       .catch((err: unknown) => {
-        if (cancelled) return
+        if (tornDown) return
         setStatus('error')
-        onError?.(err instanceof Error ? err.message : 'CAMERA_UNAVAILABLE')
+        onErrorRef.current?.(err instanceof Error ? err.message : 'CAMERA_UNAVAILABLE')
       })
 
     return () => {
-      cancelled = true
-      // stop() rejects if never started; swallow.
-      scanner.stop().catch(() => {})
-      scanner.clear()
+      void teardown()
     }
-  }, [regionId, onDecode, onError])
+  }, [regionId])
 
   const handleFile = async (file: File) => {
     if (decodedRef.current) return
+    const scanner = scannerRef.current ?? new Html5Qrcode(regionId, { verbose: false })
     try {
-      const scanner = scannerRef.current ?? new Html5Qrcode(regionId, { verbose: false })
-      // Stop live scanning first if running.
-      await scanner.stop().catch(() => {})
+      // Stop live scanning first if it's running (guarded — stop() can throw).
+      try {
+        if (RUNNING.includes(scanner.getState())) await scanner.stop()
+      } catch {
+        // ignore
+      }
       const result = await scanner.scanFile(file, false)
-      handleDecodedFromFile(result)
+      if (!decodedRef.current) {
+        decodedRef.current = true
+        onDecodeRef.current(result)
+      }
     } catch {
-      onError?.('No pudimos leer el código en la imagen.')
+      onErrorRef.current?.('No pudimos leer el código en la imagen.')
     }
-  }
-
-  const handleDecodedFromFile = (text: string) => {
-    if (decodedRef.current) return
-    decodedRef.current = true
-    onDecode(text)
   }
 
   return (

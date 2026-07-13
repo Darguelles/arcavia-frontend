@@ -75,6 +75,7 @@ export default defineConfig({
         'src/components/QrScanner.tsx',
         'src/components/AppShell.tsx',
         'src/components/CityGate.tsx',
+        'src/components/RouteError.tsx',
       ],
       thresholds: {
         lines: 80,
