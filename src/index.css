@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+
+/*
+ * Arcavia Quest design tokens — pulled from the Figma mockup (file 1LfEMYlMFIbgsE6X4EbHIS).
+ * Palette and type are the single source of truth for the player PWA; use these
+ * semantic tokens (bg-ink, text-cream, bg-gold, …) rather than raw hex in screens.
+ */
+@theme {
+  --font-sans:
+    'Montserrat', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Core brand palette */
+  --color-ink: #1f1a1e; /* app background — warm near-black */
+  --color-ink-card: #3f3c3e; /* raised card on ink */
+  --color-gold: #b19071; /* primary accent / CTA fill */
+  --color-gold-soft: #c9ad92; /* hover / lighter gold */
+  --color-cream: #ffebd9; /* primary text on ink */
+  --color-mist: #f4f4f4; /* light surface */
+
+  /* Semantic gameplay states */
+  --color-correct: #4c9a5b;
+  --color-incorrect: #c0553f;
+  --color-wp-done: #4c9a5b; /* completed waypoint pin */
+  --color-wp-active: #b19071; /* in-progress waypoint pin */
+  --color-wp-todo: #6f6a6d; /* not-started waypoint pin */
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The app is a fixed-width mobile canvas (402px in Figma). Center it on desktop. */
+#root {
+  display: flex;
+  justify-content: center;
+}
