@@ -1,15 +1,23 @@
 import { cn } from '../lib/utils'
 import type { WaypointInMission } from '../types/api'
+import { CategoryGlyph, type CategoryGlyphVariant } from './CategoryGlyph'
 import { STATUS_COLOR, STATUS_LABEL, type WaypointStatus } from './waypointStatus'
 
 interface WaypointListItemProps {
   waypoint: WaypointInMission
   status?: WaypointStatus
+  // Diamond glyph marking the waypoint's category (Figma 115:3). Omit to hide.
+  glyphVariant?: CategoryGlyphVariant
   onClick?: () => void
 }
 
 /** Row in the phase list beneath the itinerary map (spec §6/§8.6). */
-export function WaypointListItem({ waypoint, status = 'todo', onClick }: WaypointListItemProps) {
+export function WaypointListItem({
+  waypoint,
+  status = 'todo',
+  glyphVariant,
+  onClick,
+}: WaypointListItemProps) {
   return (
     <button
       type="button"
@@ -25,6 +33,13 @@ export function WaypointListItem({ waypoint, status = 'todo', onClick }: Waypoin
         <span>
           <span className="block text-[16px] text-cream">{waypoint.name}</span>
           <span className="block text-[12px] text-cream/55">
+            {glyphVariant && (
+              <CategoryGlyph
+                variant={glyphVariant}
+                size={9}
+                className="mr-1 inline-block align-middle text-gold"
+              />
+            )}
             {waypoint.category_name} · {waypoint.points} pts ·{' '}
             <span className={cn(status === 'completed' && 'text-correct')}>
               {STATUS_LABEL[status]}

@@ -20,6 +20,15 @@ const HOW_IT_WORKS: { title: string; body: string }[] = [
   { title: 'Competición', body: 'Compite en el ranking de la temporada.' },
 ]
 
+// Vision section added to the Figma HOME frame (nodes 55:84–55:90) — real copy.
+const VISION_POINTS: string[] = [
+  'El deseo profundo de vivir las ciudades en lugar de solo visitarlas.',
+  'La evolución hacia ciudades mucho más humanas, conectadas y vivas.',
+  'El anhelo colectivo de jugar, descubrir y emocionarnos juntos.',
+  'La tecnología móvil guiando nuestros pasos hacia historias reales.',
+  'El compromiso urgente de devolverle la vida y el corazón a nuestros barrios.',
+]
+
 export function Home() {
   const navigate = useNavigate()
 
@@ -82,6 +91,33 @@ export function Home() {
               </li>
             ))}
           </ol>
+        </section>
+
+        {/* Visión — Figma nodes 55:84–55:90 */}
+        <section className="flex flex-col gap-4">
+          <h2 className="text-[28px] font-bold leading-tight">
+            El mundo está listo; nuestro momento es ahora
+          </h2>
+          <p className="text-[16px] leading-6 text-cream/90">
+            Nuestra visión cobra vida gracias a un movimiento global que late con fuerza a través de
+            realidades muy claras.
+          </p>
+          <ul className="flex flex-col gap-3">
+            {VISION_POINTS.map((point) => (
+              <li key={point} className="flex gap-3">
+                <span className="shrink-0 font-bold text-gold">*</span>
+                <p className="text-[16px] leading-6 text-cream/90">{point}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* Alcance global — Figma node 63:102/63:103 (gold card) */}
+        <section className="rounded-[10px] bg-gold px-6 py-8">
+          <p className="text-[20px] font-bold leading-snug text-cream">
+            ARCAVIA QUEST gamifica ciudades globalmente conectando cultura, tecnología y comercio
+            local.
+          </p>
         </section>
 
         {/* Closing */}

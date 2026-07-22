@@ -9,7 +9,8 @@ const { mission } = vi.hoisted(() => {
     id,
     name,
     description: '',
-    category_id: 'cat',
+    // Category id tracks the name so the itinerary can distinguish categories.
+    category_id: `cat-${category}`,
     category_name: category,
     points: 100,
     lat: -12.05,
@@ -98,19 +99,30 @@ describe('PhaseItinerary', () => {
     })
   })
 
-  it('renders all phases as an accordion with the active phase expanded', () => {
+  it('renders all phases as an accordion, both collapsed at load', () => {
     renderItinerary()
     // Both phase headers present (dynamic N, not hardcoded)
     expect(screen.getByRole('button', { name: /Primera fase/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Segunda fase/ })).toBeInTheDocument()
-    // Phase 1 (route) is expanded; phase 2 collapsed
-    expect(screen.getByText('Plaza Mayor de Lima')).toBeInTheDocument()
-    expect(screen.getByText('Catedral')).toBeInTheDocument()
+    // Nothing is expanded until the user taps a phase.
+    expect(screen.queryByText('Plaza Mayor de Lima')).not.toBeInTheDocument()
+    expect(screen.queryByText('Catedral')).not.toBeInTheDocument()
     expect(screen.queryByText('Bar Cordano')).not.toBeInTheDocument()
   })
 
-  it('is single-open: tapping another phase reveals it and collapses the previous', async () => {
+  it('tapping a collapsed phase expands it; tapping it again collapses it', async () => {
     renderItinerary()
+    const primera = screen.getByRole('button', { name: /Primera fase/ })
+    await userEvent.click(primera)
+    expect(screen.getByText('Plaza Mayor de Lima')).toBeInTheDocument()
+    await userEvent.click(primera)
+    expect(screen.queryByText('Plaza Mayor de Lima')).not.toBeInTheDocument()
+  })
+
+  it('is single-open: opening another phase collapses the previous', async () => {
+    renderItinerary()
+    await userEvent.click(screen.getByRole('button', { name: /Primera fase/ }))
+    expect(screen.getByText('Plaza Mayor de Lima')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Segunda fase/ }))
     expect(screen.getByText('Bar Cordano')).toBeInTheDocument()
     expect(screen.queryByText('Plaza Mayor de Lima')).not.toBeInTheDocument()
@@ -128,5 +140,36 @@ describe('PhaseItinerary', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Volver' }))
     // Not phase 1 again — the real previous entry
     expect(screen.getByText('MISSION DETAIL')).toBeInTheDocument()
+  })
+
+  it('shows a filter chip for every category present across the itinerary', () => {
+    renderItinerary()
+    // Collected across all phases, not just the open one (Patrocinador is in p2).
+    expect(screen.getByRole('button', { name: 'Cultural' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Patrocinador' })).toBeInTheDocument()
+  })
+
+  it('toggling a category filter hides its waypoints from the phase list', async () => {
+    renderItinerary()
+    await userEvent.click(screen.getByRole('button', { name: /Primera fase/ }))
+    expect(screen.getByText('Plaza Mayor de Lima')).toBeInTheDocument()
+
+    // Turn Cultural off — the open phase is all Cultural, so it empties out.
+    const chip = screen.getByRole('button', { name: 'Cultural' })
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(chip)
+
+    expect(chip).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByText('Plaza Mayor de Lima')).not.toBeInTheDocument()
+    expect(screen.getByText(/Ningún punto coincide con el filtro/)).toBeInTheDocument()
+  })
+
+  it('re-selecting a category filter brings its waypoints back', async () => {
+    renderItinerary()
+    await userEvent.click(screen.getByRole('button', { name: /Primera fase/ }))
+    const chip = screen.getByRole('button', { name: 'Cultural' })
+    await userEvent.click(chip)
+    await userEvent.click(chip)
+    expect(screen.getByText('Plaza Mayor de Lima')).toBeInTheDocument()
   })
 })

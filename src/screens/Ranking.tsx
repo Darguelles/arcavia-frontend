@@ -8,9 +8,8 @@ import { useCitySessionStore } from '../stores/citySessionStore'
 
 /*
  * RANKING (/ranking) — Figma frame 135:644.
- * DESIGN PENDING (§8.12): the frame only had background/nav as of the last pull,
- * so this is a clean list built against GET /cities/{id}/leaderboard, not an
- * invented layout. Confirm the visual treatment with the designer before polish.
+ * Now designed (§8.12): a top-3 podium over a cream sheet of the remaining
+ * ranks (see LeaderboardList), built against GET /cities/{id}/leaderboard.
  */
 export function Ranking() {
   return (
