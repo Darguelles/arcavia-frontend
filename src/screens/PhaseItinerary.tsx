@@ -89,6 +89,7 @@ export function PhaseItinerary() {
       ...w,
       status: 'todo' as const, // see components/waypointStatus.ts — API gap
       order: i + 1,
+      glyph: glyphById.get(w.category_id),
     }))
     .filter(isVisible)
 

@@ -53,3 +53,22 @@ export function CategoryGlyph({
     </svg>
   )
 }
+
+/**
+ * Raw SVG markup for a glyph, for contexts that take an HTML string rather than
+ * JSX — chiefly the Leaflet map pins (`L.divIcon`), so pins share the exact same
+ * diamonds as the filter chips and list rows. `color` is baked in (no
+ * `currentColor`, which wouldn't inherit inside an injected icon).
+ */
+export function categoryGlyphSvg(
+  variant: CategoryGlyphVariant,
+  { size = 12, color = '#000' }: { size?: number; color?: string } = {}
+): string {
+  const paths =
+    variant === 'solid'
+      ? `<path d="${FILLED}" fill="${color}"/>`
+      : variant === 'ringed'
+        ? `<path d="${OUTER}" stroke="${color}" stroke-width="1.3" fill="none"/><path d="${INNER}" fill="${color}"/>`
+        : `<path d="${OUTER}" stroke="${color}" stroke-width="1.3" fill="none"/>`
+  return `<svg width="${size}" height="${size}" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`
+}

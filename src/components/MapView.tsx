@@ -5,10 +5,14 @@ import 'leaflet/dist/leaflet.css'
 import type { WaypointInMission } from '../types/api'
 import { resolveTileUrl } from '../lib/mapTiles'
 import { STATUS_COLOR, type WaypointStatus } from './waypointStatus'
+import { categoryGlyphSvg, type CategoryGlyphVariant } from './CategoryGlyph'
 
 export interface MapWaypoint extends WaypointInMission {
   status: WaypointStatus
   order: number
+  // Category diamond shown inside the pin (Figma 115:3). Falls back to the order
+  // number when absent.
+  glyph?: CategoryGlyphVariant
 }
 
 interface MapViewProps {
@@ -25,8 +29,9 @@ interface MapViewProps {
  * Leaflet map for the phase itinerary (spec §10). Tiles come from the city's
  * configured `tile_url`; when that's absent or a placeholder we fall back to a
  * live provider so the map never renders blank. Pins are coloured by
- * user_waypoint_progress.status. Live position/distance are computed client-side
- * elsewhere and generate no backend traffic.
+ * user_waypoint_progress.status and carry their category's diamond glyph. Live
+ * position/distance are computed client-side elsewhere and generate no backend
+ * traffic.
  */
 export function MapView({
   center,
@@ -78,8 +83,8 @@ function WaypointMarker({
   onSelect: (id: string) => void
 }) {
   const icon = useMemo(
-    () => buildPinIcon(waypoint.status, waypoint.order),
-    [waypoint.status, waypoint.order]
+    () => buildPinIcon(waypoint.status, waypoint.order, waypoint.glyph),
+    [waypoint.status, waypoint.order, waypoint.glyph]
   )
   return (
     <Marker
@@ -90,9 +95,21 @@ function WaypointMarker({
   )
 }
 
-/** WaypointPin (spec §6): coloured teardrop with its order number. */
-function buildPinIcon(status: WaypointStatus, order: number): L.DivIcon {
+/**
+ * WaypointPin (spec §6): coloured teardrop whose inner symbol is the waypoint's
+ * category diamond (Figma 115:3) — the same glyph as the filter chips and list
+ * rows. The teardrop is rotated -45°, so the symbol is counter-rotated +45° to
+ * sit upright. Falls back to the order number when no category glyph is supplied.
+ */
+function buildPinIcon(
+  status: WaypointStatus,
+  order: number,
+  glyph?: CategoryGlyphVariant
+): L.DivIcon {
   const color = STATUS_COLOR[status]
+  const symbol = glyph
+    ? `<span style="transform:rotate(45deg);display:flex;line-height:0;">${categoryGlyphSvg(glyph, { size: 14, color: '#1f1a1e' })}</span>`
+    : `<span style="transform:rotate(45deg);color:#1f1a1e;font-weight:700;font-size:12px;font-family:Montserrat,sans-serif;">${order}</span>`
   return L.divIcon({
     className: 'arcavia-pin',
     html: `
@@ -102,7 +119,7 @@ function buildPinIcon(status: WaypointStatus, order: number): L.DivIcon {
         transform:rotate(-45deg);
         background:${color};border:2px solid #ffebd9;
         box-shadow:0 2px 6px rgba(0,0,0,.4);">
-        <span style="transform:rotate(45deg);color:#1f1a1e;font-weight:700;font-size:12px;font-family:Montserrat,sans-serif;">${order}</span>
+        ${symbol}
       </div>`,
     iconSize: [30, 30],
     iconAnchor: [15, 30],
