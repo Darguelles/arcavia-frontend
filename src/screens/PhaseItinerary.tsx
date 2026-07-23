@@ -12,7 +12,9 @@ import { PrimaryButton } from '../components/PrimaryButton'
 import { SecondaryButton } from '../components/SecondaryButton'
 import { LoadingState, ErrorState } from '../components/states'
 import { cn } from '../lib/utils'
+import { haversineMeters, formatDistance } from '../lib/geo'
 import { useMissionDetail } from '../api/missions'
+import { useWalkingRoute } from '../api/routing'
 import { useUserLocation } from '../lib/useUserLocation'
 import { useCitySessionStore } from '../stores/citySessionStore'
 import type { MissionDetail, WaypointInMission } from '../types/api'
@@ -49,6 +51,16 @@ export function PhaseItinerary() {
   // check-in screen's job.
   const { location: userLocation } = useUserLocation()
   const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(waypointId ?? null)
+  // The waypoint the player is currently walking toward. The router draws a
+  // street-following path; while it loads / if it fails we fall back to a
+  // straight guide line. Cleared with the route chip.
+  const [routingWaypointId, setRoutingWaypointId] = useState<string | null>(null)
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][] | null>(null)
+  const [routeMeta, setRouteMeta] = useState<{ distance_m: number; duration_s: number } | null>(
+    null
+  )
+  const [routeFailed, setRouteFailed] = useState(false)
+  const walkingRoute = useWalkingRoute()
   // Which phase's list is expanded. Starts null so BOTH phases load collapsed —
   // the URL's phaseId still drives the map, but the accordion opens only on tap.
   const [openPhaseId, setOpenPhaseId] = useState<string | null>(null)
@@ -101,6 +113,20 @@ export function PhaseItinerary() {
   const selectedWaypoint =
     selectedWaypointId != null ? findWaypoint(mission, selectedWaypointId) : undefined
 
+  // Active wayfinding target. The polyline drawn on the map is the router's
+  // street path when we have it, else a straight fallback while it loads / if
+  // routing is unavailable — both only exist with a live position to draw from.
+  const routingWaypoint =
+    routingWaypointId != null ? findWaypoint(mission, routingWaypointId) : undefined
+  const straightLine: [number, number][] | null =
+    userLocation && routingWaypoint
+      ? [
+          [userLocation.lat, userLocation.lng],
+          [routingWaypoint.lat, routingWaypoint.lng],
+        ]
+      : null
+  const routeLine = routeGeometry ?? straightLine
+
   // Single-open accordion that can also be all-closed: tapping the open phase
   // collapses it; tapping a closed one opens it (and points the map at it).
   const togglePhase = (id: string) => {
@@ -134,6 +160,54 @@ export function PhaseItinerary() {
     }
   }
 
+  // Fetch a street-following walking route from the player to a waypoint, and
+  // frame it. Falls back to (and frames) the straight line if routing fails.
+  const fetchRoute = (wp: WaypointInMission) => {
+    if (!userLocation) return
+    setRouteFailed(false)
+    const from = { lat: userLocation.lat, lng: userLocation.lng }
+    walkingRoute.mutate(
+      { from, to: { lat: wp.lat, lng: wp.lng } },
+      {
+        onSuccess: (r) => {
+          const geometry = r.geometry as [number, number][]
+          setRouteGeometry(geometry)
+          setRouteMeta({ distance_m: r.distance_m, duration_s: r.duration_s })
+          if (mapRef.current && geometry.length >= 2) {
+            mapRef.current.fitBounds(geometry, { padding: [64, 64], maxZoom: 17 })
+          }
+        },
+        onError: () => {
+          setRouteFailed(true)
+          setRouteGeometry(null)
+          setRouteMeta(null)
+          mapRef.current?.fitBounds(
+            [
+              [from.lat, from.lng],
+              [wp.lat, wp.lng],
+            ],
+            { padding: [64, 64], maxZoom: 17 }
+          )
+        },
+      }
+    )
+  }
+
+  const startRoute = (wp: WaypointInMission) => {
+    setRoutingWaypointId(wp.id)
+    setSelectedWaypointId(null)
+    setRouteGeometry(null)
+    setRouteMeta(null)
+    fetchRoute(wp)
+  }
+
+  const stopRoute = () => {
+    setRoutingWaypointId(null)
+    setRouteGeometry(null)
+    setRouteMeta(null)
+    setRouteFailed(false)
+  }
+
   return (
     <div className="relative min-h-dvh w-full max-w-[402px] overflow-hidden bg-ink">
       {/* Full-screen map background. `isolate` contains Leaflet's internal
@@ -145,6 +219,7 @@ export function PhaseItinerary() {
             tileUrl={city.tile_url ?? ''}
             waypoints={mapWaypoints}
             userLocation={userLocation}
+            route={routeLine}
             onSelect={setSelectedWaypointId}
             onMapReady={(m) => {
               mapRef.current = m
@@ -251,6 +326,51 @@ export function PhaseItinerary() {
             })}
           </div>
         )}
+
+        {/* Active wayfinding chip: which point you're walking toward, the route's
+            walking distance + time (or a status), a recalcular control, and a
+            dismiss. Appears once "Cómo llegar" is tapped. */}
+        {routingWaypoint && (
+          <div className="flex justify-center">
+            <div
+              className={`pointer-events-auto flex items-center gap-3 rounded-full bg-ink-card px-4 py-2 ${CONTROL_SHADOW}`}
+            >
+              <span className="text-gold" aria-hidden>
+                ➤
+              </span>
+              <span className="text-[13px] font-medium text-cream">
+                {routingWaypoint.name}
+                {walkingRoute.isPending ? (
+                  <span className="text-cream/60"> · calculando…</span>
+                ) : routeMeta ? (
+                  <span className="text-cream/60">
+                    {' · '}
+                    {formatDistance(routeMeta.distance_m)} · {formatWalkTime(routeMeta.duration_s)}
+                  </span>
+                ) : routeFailed ? (
+                  <span className="text-cream/60"> · línea directa</span>
+                ) : null}
+              </span>
+              <button
+                type="button"
+                onClick={() => routingWaypoint && fetchRoute(routingWaypoint)}
+                disabled={walkingRoute.isPending || !userLocation}
+                aria-label="Recalcular ruta"
+                className="flex h-5 w-5 items-center justify-center rounded-full text-cream/60 hover:text-cream disabled:opacity-40"
+              >
+                ↻
+              </button>
+              <button
+                type="button"
+                onClick={stopRoute}
+                aria-label="Dejar de seguir la ruta"
+                className="flex h-5 w-5 items-center justify-center rounded-full text-cream/60 hover:text-cream"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Collapsible phase accordion, floating over the map */}
@@ -306,6 +426,14 @@ export function PhaseItinerary() {
       {selectedWaypoint && (
         <WaypointPopover
           waypoint={selectedWaypoint}
+          distanceM={
+            userLocation
+              ? haversineMeters(userLocation, {
+                  lat: selectedWaypoint.lat,
+                  lng: selectedWaypoint.lng,
+                })
+              : null
+          }
           onScan={() =>
             navigate(`/waypoints/${selectedWaypoint.id}/checkin`, {
               // Carry context the check-in/answer/result screens can't otherwise
@@ -319,6 +447,7 @@ export function PhaseItinerary() {
               },
             })
           }
+          onRoute={() => startRoute(selectedWaypoint)}
           onClose={() => setSelectedWaypointId(null)}
         />
       )}
@@ -327,17 +456,21 @@ export function PhaseItinerary() {
 }
 
 /*
- * VENTANA DE LOC popover (spec §8.7). Two states: "Completa el desafío" starts
- * the scan flow; "Volver a la ruta" dismisses back to the map. (Completed state
- * would show only "Volver a la ruta" once the API exposes waypoint status.)
+ * VENTANA DE LOC popover (spec §8.7). "Completa el desafío" starts the check-in
+ * flow; "Cómo llegar" draws a direct guide line from the player to the point
+ * (shown only when we have a live position); "Volver a la ruta" dismisses.
  */
 function WaypointPopover({
   waypoint,
+  distanceM,
   onScan,
+  onRoute,
   onClose,
 }: {
   waypoint: WaypointInMission
+  distanceM: number | null
   onScan: () => void
+  onRoute: () => void
   onClose: () => void
 }) {
   return (
@@ -345,11 +478,21 @@ function WaypointPopover({
       <div className="w-full max-w-[320px] rounded-[10px] bg-[#f3efe6] p-6 text-ink">
         <p className="text-center text-[12px] text-ink/70">{waypoint.category_name}</p>
         <h3 className="mt-1 text-center text-[21px] font-bold">“{waypoint.name}”</h3>
+        {distanceM != null && (
+          <p className="mt-1 text-center text-[13px] font-medium text-ink/70">
+            A {formatDistance(distanceM)} de ti
+          </p>
+        )}
         {waypoint.description && (
           <p className="mt-2 text-center text-[14px] text-ink/80">{waypoint.description}</p>
         )}
         <div className="mt-5 flex flex-col gap-3">
           <PrimaryButton onClick={onScan}>Completa el desafío</PrimaryButton>
+          {distanceM != null && (
+            <SecondaryButton onClick={onRoute} className="!border-gold !text-ink hover:!bg-gold/10">
+              Cómo llegar
+            </SecondaryButton>
+          )}
           <SecondaryButton onClick={onClose} className="!border-gold !text-ink hover:!bg-gold/10">
             Volver a la ruta
           </SecondaryButton>
@@ -357,6 +500,11 @@ function WaypointPopover({
       </div>
     </div>
   )
+}
+
+/** Walking time label from a route's duration (seconds), min 1 min. */
+function formatWalkTime(seconds: number): string {
+  return `${Math.max(1, Math.round(seconds / 60))} min`
 }
 
 interface ItineraryCategory {

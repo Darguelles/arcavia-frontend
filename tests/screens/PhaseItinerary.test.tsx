@@ -63,6 +63,12 @@ vi.mock('../../src/api/missions', () => ({
   useMissionDetail: () => ({ data: mission, isLoading: false, isError: false, refetch: vi.fn() }),
 }))
 
+// The walking-route hook uses React Query's useMutation; stub it so these
+// map/accordion tests don't need a QueryClientProvider.
+vi.mock('../../src/api/routing', () => ({
+  useWalkingRoute: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+
 import { PhaseItinerary } from '../../src/screens/PhaseItinerary'
 import { useCitySessionStore } from '../../src/stores/citySessionStore'
 

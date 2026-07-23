@@ -298,6 +298,27 @@ export type GeoKeywordSubmitResult =
   | { correct: true; awaiting: string[] }
   | { correct: true; status: string; challenges: ChallengePublic[] }
 
+// ---------------------------------------------------------------------------
+// Walking route (schemas/routing.py) — wayfinding UX, proxied via the backend.
+// ---------------------------------------------------------------------------
+
+export interface LatLng {
+  lat: number
+  lng: number
+}
+
+export interface RouteRequest {
+  from: LatLng
+  to: LatLng
+}
+
+export interface WalkingRoute {
+  // ordered [lat, lng] pairs — a polyline the map draws
+  geometry: [number, number][]
+  distance_m: number
+  duration_s: number
+}
+
 export interface AnswerRequest {
   selected_option_id: UUID
 }

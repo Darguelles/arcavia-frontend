@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { Circle, MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
+import { Circle, MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { WaypointInMission } from '../types/api'
@@ -23,6 +23,10 @@ interface MapViewProps {
   onSelect: (waypointId: string) => void
   // Live "you are here" position (spec §10) — display only, never validation.
   userLocation?: UserLocation | null
+  // Wayfinding guide polyline (spec §10): the street-following walking path when
+  // the router returns one, or a straight [from, to] fallback while it loads /
+  // if routing is unavailable. Ordered [lat, lng] pairs.
+  route?: [number, number][] | null
   // Hands back the Leaflet instance so the parent can drive it (e.g. recenter).
   onMapReady?: (map: L.Map) => void
   className?: string
@@ -42,6 +46,7 @@ export function MapView({
   waypoints,
   onSelect,
   userLocation,
+  route,
   onMapReady,
   className,
 }: MapViewProps) {
@@ -59,6 +64,9 @@ export function MapView({
         url={resolvedUrl}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
+      {route && route.length >= 2 && (
+        <Polyline positions={route} pathOptions={{ color: '#e6b800', weight: 4, opacity: 0.9 }} />
+      )}
       {waypoints.map((wp) => (
         <WaypointMarker key={wp.id} waypoint={wp} onSelect={onSelect} />
       ))}
