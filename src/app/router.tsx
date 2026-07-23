@@ -22,7 +22,7 @@ const Ranking = screen(() => import('../screens/Ranking'), 'Ranking')
 const Missions = screen(() => import('../screens/Missions'), 'Missions')
 const MissionDetail = screen(() => import('../screens/MissionDetail'), 'MissionDetail')
 const PhaseItinerary = screen(() => import('../screens/PhaseItinerary'), 'PhaseItinerary')
-const Challenge = screen(() => import('../screens/Challenge'), 'Challenge')
+const CheckIn = screen(() => import('../screens/CheckIn'), 'CheckIn')
 const Result = screen(() => import('../screens/Result'), 'Result')
 const Menu = screen(() => import('../screens/Menu'), 'Menu')
 const Profile = screen(() => import('../screens/Profile'), 'Profile')
@@ -66,7 +66,7 @@ const router = createBrowserRouter([
         path: '/missions/:missionId/waypoints/:waypointId',
         element: authed(<PhaseItinerary />),
       },
-      { path: '/waypoints/:waypointId/challenge', element: authed(<Challenge />) },
+      { path: '/waypoints/:waypointId/checkin', element: authed(<CheckIn />) },
       { path: '/waypoints/:waypointId/result', element: authed(<Result />) },
       { path: '/menu', element: authed(<Menu />) },
       { path: '/profile', element: authed(<Profile />) },

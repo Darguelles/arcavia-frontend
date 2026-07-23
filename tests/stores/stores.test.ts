@@ -19,6 +19,7 @@ vi.mock('../../src/lib/idb', () => {
 })
 
 import { useAuthStore } from '../../src/stores/authStore'
+import { useCheckInSessionStore } from '../../src/stores/checkInSessionStore'
 import { useCitySessionStore } from '../../src/stores/citySessionStore'
 import { useScanSessionStore } from '../../src/stores/scanSessionStore'
 import type { City } from '../../src/types/api'
@@ -92,5 +93,44 @@ describe('scanSessionStore', () => {
     useScanSessionStore.getState().reset()
     expect(useScanSessionStore.getState().waypointId).toBeNull()
     expect(useScanSessionStore.getState().cameraPermission).toBe('unknown')
+  })
+})
+
+describe('checkInSessionStore', () => {
+  beforeEach(() => useCheckInSessionStore.getState().reset())
+
+  it('startCheckIn sets the waypoint and resets to the permission phase', () => {
+    useCheckInSessionStore.getState().setPhase('watching')
+    useCheckInSessionStore.getState().startCheckIn('wp1')
+    expect(useCheckInSessionStore.getState().waypointId).toBe('wp1')
+    expect(useCheckInSessionStore.getState().phase).toBe('permission')
+    expect(useCheckInSessionStore.getState().lastReadout).toBeNull()
+  })
+
+  it('setLastReadout stores the latest server progress readout', () => {
+    const readout = {
+      distance_m: 12,
+      inside: true,
+      accurate: true,
+      accepted_fixes: 2,
+      dwell_progress: 0.5,
+      dwell_satisfied: false,
+      qr_verified: false,
+      keyword_verified: false,
+      awaiting: ['dwell'],
+      keyword_prompt: null,
+    }
+    useCheckInSessionStore.getState().setLastReadout(readout)
+    expect(useCheckInSessionStore.getState().lastReadout).toEqual(readout)
+  })
+
+  it('reset clears everything', () => {
+    useCheckInSessionStore.getState().startCheckIn('wp1')
+    useCheckInSessionStore.getState().setGeoPermission('granted')
+    useCheckInSessionStore.getState().setPhase('watching')
+    useCheckInSessionStore.getState().reset()
+    expect(useCheckInSessionStore.getState().waypointId).toBeNull()
+    expect(useCheckInSessionStore.getState().geoPermission).toBe('unknown')
+    expect(useCheckInSessionStore.getState().phase).toBe('permission')
   })
 })

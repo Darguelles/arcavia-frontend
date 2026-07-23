@@ -76,6 +76,11 @@ export default defineConfig({
         'src/components/AppShell.tsx',
         'src/components/CityGate.tsx',
         'src/components/RouteError.tsx',
+        // A screen-level flow fragment (answer mutation + navigation)
+        // extracted out of screens/CheckIn.tsx's predecessor so it can be
+        // shared — validated by E2E, same bar as the screens/ directory it
+        // used to live in, not the pure-component bar.
+        'src/components/ChallengeQuestion.tsx',
       ],
       thresholds: {
         lines: 80,

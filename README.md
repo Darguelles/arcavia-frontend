@@ -89,7 +89,7 @@ Each is implemented defensively with a clear TODO so wiring real data is small:
    cards use a warm gradient placeholder and accept an `imageUrl` for when it lands.
 3. **Leaderboard names** — entries carry only `user_id` (no display name); we show
    rank + points + a shortened id, and highlight the current user.
-4. **Waypoint points on result** — `validate-scan`/`answer` responses don't include
+4. **Waypoint points on result** — `geo-checkin`/`answer` responses don't include
    the waypoint's points, so the itinerary passes them via navigation state; a
    direct-hit result screen omits the "+N pts" badge.
 5. **Forgot password** — no endpoint (§8.3); the login link routes to support mail,

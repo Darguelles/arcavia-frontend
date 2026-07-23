@@ -28,14 +28,19 @@ Every screen also records its frame in a top-of-file `// Figma frame N:N` commen
 | `Missions.tsx`       | MISIONES                  | `9:175`          |
 | `MissionDetail.tsx`  | PERFIL MISIÓN             | `12:305`         |
 | `PhaseItinerary.tsx` | ITINERARIO / PRIMERA FASE | `115:3` (`115:123`) |
-| `Challenge.tsx`      | DESAFIO                   | `115:164`        |
 | `Result.tsx`         | PREGUNTA CORRECTA / INCORRECTA | `14:287` / `121:389` |
 | `Menu.tsx`           | MENU                      | `135:619`        |
 | `Profile.tsx`        | PERFIL DE USUARIO         | `135:642`        |
 | `Ranking.tsx`        | RANKING                   | `135:644`        |
 | `AccountSettings.tsx`| DATOS PERSONALES          | `197:99` ⚠︎       |
 
-`Rewards.tsx` and `NotFound.tsx` have no dedicated frame (built from spec).
+`Rewards.tsx`, `NotFound.tsx`, and `CheckIn.tsx` have no dedicated frame (built from spec).
+`CheckIn.tsx` (`/waypoints/:waypointId/checkin`) replaced `Challenge.tsx`/DESAFIO's QR-scan
+phase — geolocation dwell check-in is now the always-on presence proof for every waypoint,
+with QR (`requires_qr`) and an on-site keyword (`requires_keyword`) as optional additional
+factors an admin can require on top. Once every required factor is satisfied the screen hands
+off to the same `ChallengeQuestion` (`src/components/ChallengeQuestion.tsx`, extracted so it's
+shared) → answer → Result flow DESAFIO always used — only the presence-proof gate changed.
 
 All node-ids except AccountSettings are confirmed against each screen's `// Figma frame`
 comment. **⚠︎ `AccountSettings.tsx → 197:99` is unverified** — the code cites only `spec §8.13`,
@@ -56,7 +61,8 @@ Screens you don't name are not fetched. This keeps each sync bounded to what cha
 ### Standing corrections / intentional deviations from the mockup (keep on sync)
 - **Auth is by email**, not the username the mockup shows.
 - Registration adds a real **birth_date date picker + consent checkbox** (legal, spec §6.10).
-- **Camera/QR scan** is a real device flow (mockup is static).
+- **Geolocation check-in** (watch + poll + wake lock) and, when a waypoint requires it,
+  **camera/QR scan** are real device flows (mockup is static).
 - Map is a **live Leaflet map** (mockup is a flat image). Pins are status-coloured teardrops
   carrying the **category diamond glyph**; ITINERARIO has **category filter chips**
   (`Culturales` ◆ / `Patrocinado` ◈) and its phase accordion **loads collapsed**.

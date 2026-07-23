@@ -159,6 +159,15 @@ export interface WaypointInMission {
   lng: number
   tolerance_radius_m: number
   order_index: number
+  // Geolocation check-in is the always-on presence proof for every waypoint;
+  // these two flag optional additional factors an admin can require on top
+  // (see schemas/geo_checkin.py). Never carries onsite_keyword_answer — that's
+  // compared server-side only and never serialized here.
+  requires_qr: boolean
+  requires_keyword: boolean
+  required_accuracy_m: number | null
+  dwell_seconds: number | null
+  min_fixes: number | null
 }
 
 export interface PhaseInMission {
@@ -213,16 +222,81 @@ export interface ChallengePublic {
   options: ChallengeOptionPublic[]
 }
 
-export interface ValidateScanRequest {
-  token: UUID
-  lat: number
-  lng: number
+// ---------------------------------------------------------------------------
+// Geo check-in (schemas/geo_checkin.py) — replaces the retired validate-scan.
+// Geo dwell is the always-on presence proof for every waypoint; requires_qr/
+// requires_keyword are optional additional factors. fix/qr-submit/keyword-
+// submit intentionally return different shapes (a live progress readout vs.
+// the completion payload with challenges) rather than one padded type — mirror
+// the backend's app/schemas/geo_checkin.py exactly, don't invent extra fields.
+// ---------------------------------------------------------------------------
+
+export interface GeoCheckinStartResponse {
+  waypoint_id: UUID
+  center_lat: number
+  center_lng: number
+  radius_m: number
+  required_accuracy_m: number
+  dwell_seconds: number
+  min_fixes: number
+  requires_qr: boolean
+  requires_keyword: boolean
+  accepted_fixes: number
+  dwell_satisfied: boolean
+  qr_verified: boolean
+  keyword_verified: boolean
 }
 
-export interface ValidateScanResponse {
+export interface GeoFixRequest {
+  lat: number
+  lng: number
+  accuracy: number
+  altitude?: number | null
+}
+
+// Live readout — never a hard verdict, just where things stand.
+export interface GeoCheckinProgress {
+  distance_m: number
+  inside: boolean
+  accurate: boolean
+  accepted_fixes: number
+  dwell_progress: number // 0..1
+  dwell_satisfied: boolean
+  qr_verified: boolean
+  keyword_verified: boolean
+  awaiting: string[] // subset of ["dwell", "qr", "keyword"]
+  keyword_prompt: string | null // revealed only once dwell is satisfied
+}
+
+// Returned once every required factor is satisfied — same shape the old
+// validate-scan returned, so the post-presence-proof flow (render challenges,
+// then answer) is unchanged.
+export interface GeoCheckinComplete {
   status: string
   challenges: ChallengePublic[]
 }
+
+export type GeoFixResult = GeoCheckinProgress | GeoCheckinComplete
+
+export function isGeoCheckinComplete(
+  r: GeoFixResult | GeoCheckinComplete
+): r is GeoCheckinComplete {
+  return 'challenges' in r
+}
+
+export interface GeoQrSubmitRequest {
+  token: string
+}
+
+export interface GeoKeywordSubmitRequest {
+  answer: string
+}
+
+// Wrong-answer responses are not errors — retries are allowed.
+export type GeoKeywordSubmitResult =
+  | { correct: false; awaiting: string[] }
+  | { correct: true; awaiting: string[] }
+  | { correct: true; status: string; challenges: ChallengePublic[] }
 
 export interface AnswerRequest {
   selected_option_id: UUID

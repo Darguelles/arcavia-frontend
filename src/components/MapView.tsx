@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from 'react'
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
+import { Circle, MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { WaypointInMission } from '../types/api'
+import type { UserLocation } from '../lib/useUserLocation'
 import { resolveTileUrl } from '../lib/mapTiles'
 import { STATUS_COLOR, type WaypointStatus } from './waypointStatus'
 import { categoryGlyphSvg, type CategoryGlyphVariant } from './CategoryGlyph'
@@ -20,6 +21,8 @@ interface MapViewProps {
   tileUrl: string
   waypoints: MapWaypoint[]
   onSelect: (waypointId: string) => void
+  // Live "you are here" position (spec §10) — display only, never validation.
+  userLocation?: UserLocation | null
   // Hands back the Leaflet instance so the parent can drive it (e.g. recenter).
   onMapReady?: (map: L.Map) => void
   className?: string
@@ -38,6 +41,7 @@ export function MapView({
   tileUrl,
   waypoints,
   onSelect,
+  userLocation,
   onMapReady,
   className,
 }: MapViewProps) {
@@ -58,10 +62,50 @@ export function MapView({
       {waypoints.map((wp) => (
         <WaypointMarker key={wp.id} waypoint={wp} onSelect={onSelect} />
       ))}
+      {userLocation && <UserLocationMarker location={userLocation} />}
       <FitToWaypoints waypoints={waypoints} center={center} />
       <InvalidateOnMount />
       {onMapReady && <MapReady onReady={onMapReady} />}
     </MapContainer>
+  )
+}
+
+const USER_DOT_COLOR = '#3b82f6'
+
+/**
+ * "You are here" marker: a blue dot with a translucent accuracy halo (spec §10).
+ * Distinct from the teardrop waypoint pins so the two never read as the same
+ * thing. Display only — this reflects the client's own position and drives no
+ * validation.
+ */
+function UserLocationMarker({ location }: { location: UserLocation }) {
+  const icon = useMemo(
+    () =>
+      L.divIcon({
+        className: 'arcavia-user-dot',
+        html: `<div style="
+          width:16px;height:16px;border-radius:50%;
+          background:${USER_DOT_COLOR};border:3px solid #fff;
+          box-shadow:0 0 0 2px rgba(59,130,246,.4),0 1px 4px rgba(0,0,0,.5);"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      }),
+    []
+  )
+  return (
+    <>
+      <Circle
+        center={[location.lat, location.lng]}
+        radius={location.accuracy}
+        pathOptions={{
+          color: USER_DOT_COLOR,
+          weight: 1,
+          fillColor: USER_DOT_COLOR,
+          fillOpacity: 0.12,
+        }}
+      />
+      <Marker position={[location.lat, location.lng]} icon={icon} />
+    </>
   )
 }
 

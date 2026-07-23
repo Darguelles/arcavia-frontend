@@ -1,28 +1,9 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { apiClient } from './client'
 import { queryClient, queryKeys } from './queryClient'
-import type {
-  AnswerResponse,
-  ChallengePublic,
-  MyProgressResponse,
-  UUID,
-  ValidateScanResponse,
-} from '../types/api'
+import type { AnswerResponse, ChallengePublic, MyProgressResponse, UUID } from '../types/api'
 
 const V1 = '/api/v1'
-
-/**
- * QR proximity + anti-cheat gate; starts the waypoint and returns its
- * challenges (spec §8.8). Distinct error codes bubble up as ApiClientError.code:
- * OUT_OF_RANGE (403), INVALID_QR (404), QR_WAYPOINT_MISMATCH (400),
- * ALREADY_COMPLETED (409), SCAN_REJECTED (403).
- */
-export function useValidateScan(waypointId: string) {
-  return useMutation({
-    mutationFn: (body: { token: UUID; lat: number; lng: number }) =>
-      apiClient.post<ValidateScanResponse>(`${V1}/waypoints/${waypointId}/validate-scan`, body),
-  })
-}
 
 /** Challenges for an already-started waypoint (requires progress row — 403 otherwise). */
 export function useWaypointChallenges(waypointId: string | undefined, enabled = true) {

@@ -45,7 +45,7 @@ describe('apiClient', () => {
       )
     )
     await expect(
-      apiClient.post('/api/v1/waypoints/w/validate-scan', {}, { anonymous: true })
+      apiClient.post('/api/v1/waypoints/w/geo-checkin/fix', {}, { anonymous: true })
     ).rejects.toMatchObject({
       code: 'OUT_OF_RANGE',
       status: 403,

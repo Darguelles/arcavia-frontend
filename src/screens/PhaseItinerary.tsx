@@ -13,6 +13,7 @@ import { SecondaryButton } from '../components/SecondaryButton'
 import { LoadingState, ErrorState } from '../components/states'
 import { cn } from '../lib/utils'
 import { useMissionDetail } from '../api/missions'
+import { useUserLocation } from '../lib/useUserLocation'
 import { useCitySessionStore } from '../stores/citySessionStore'
 import type { MissionDetail, WaypointInMission } from '../types/api'
 
@@ -43,6 +44,10 @@ export function PhaseItinerary() {
   const { data: mission, isLoading, isError, refetch } = useMissionDetail(missionId)
 
   const mapRef = useRef<LeafletMap | null>(null)
+  // Live "you are here" position for wayfinding (spec §10) — display only, no
+  // backend traffic. Coarse/battery-friendly; the high-accuracy watch is the
+  // check-in screen's job.
+  const { location: userLocation } = useUserLocation()
   const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(waypointId ?? null)
   // Which phase's list is expanded. Starts null so BOTH phases load collapsed —
   // the URL's phaseId still drives the map, but the accordion opens only on tap.
@@ -123,6 +128,12 @@ export function PhaseItinerary() {
     }
   }
 
+  const centerOnUser = () => {
+    if (mapRef.current && userLocation) {
+      mapRef.current.setView([userLocation.lat, userLocation.lng], 16)
+    }
+  }
+
   return (
     <div className="relative min-h-dvh w-full max-w-[402px] overflow-hidden bg-ink">
       {/* Full-screen map background. `isolate` contains Leaflet's internal
@@ -133,6 +144,7 @@ export function PhaseItinerary() {
             center={center}
             tileUrl={city.tile_url ?? ''}
             waypoints={mapWaypoints}
+            userLocation={userLocation}
             onSelect={setSelectedWaypointId}
             onMapReady={(m) => {
               mapRef.current = m
@@ -171,22 +183,43 @@ export function PhaseItinerary() {
             {mission.name}
           </span>
 
-          <button
-            type="button"
-            onClick={recenter}
-            aria-label="Centrar mapa"
-            className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-ink-card text-cream ${CONTROL_SHADOW}`}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" />
-              <path
-                d="M12 2v3M12 19v3M2 12h3M19 12h3"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
+          <div className="pointer-events-auto flex gap-2">
+            {userLocation && (
+              <button
+                type="button"
+                onClick={centerOnUser}
+                aria-label="Centrar en mi ubicación"
+                className={`flex h-10 w-10 items-center justify-center rounded-full bg-ink-card text-[#7cb0ff] ${CONTROL_SHADOW}`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 2v3M12 19v3M2 12h3M19 12h3"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="12" cy="12" r="4" fill="currentColor" />
+                </svg>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={recenter}
+              aria-label="Centrar mapa"
+              className={`flex h-10 w-10 items-center justify-center rounded-full bg-ink-card text-cream ${CONTROL_SHADOW}`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" />
+                <path
+                  d="M12 2v3M12 19v3M2 12h3M19 12h3"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Category filter chips (Figma 115:3). Toggle a category off to hide its
@@ -274,9 +307,9 @@ export function PhaseItinerary() {
         <WaypointPopover
           waypoint={selectedWaypoint}
           onScan={() =>
-            navigate(`/waypoints/${selectedWaypoint.id}/challenge`, {
-              // Carry context the scan/answer/result screens can't otherwise get
-              // (validate-scan/answer responses don't include waypoint points).
+            navigate(`/waypoints/${selectedWaypoint.id}/checkin`, {
+              // Carry context the check-in/answer/result screens can't otherwise
+              // get (geo-checkin/answer responses don't include waypoint points).
               state: {
                 points: selectedWaypoint.points,
                 waypointName: selectedWaypoint.name,

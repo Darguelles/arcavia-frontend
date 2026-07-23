@@ -36,6 +36,11 @@ describe('WaypointListItem', () => {
     lng: -77,
     tolerance_radius_m: 50,
     order_index: 0,
+    requires_qr: false,
+    requires_keyword: false,
+    required_accuracy_m: 50,
+    dwell_seconds: 60,
+    min_fixes: 4,
   }
   it('renders name, category, points and default "por visitar" status', () => {
     render(<WaypointListItem waypoint={wp} />)
