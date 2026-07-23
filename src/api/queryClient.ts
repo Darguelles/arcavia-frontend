@@ -33,6 +33,7 @@ export const queryKeys = {
   mission: (missionId: string) => ['mission', missionId] as const,
   waypointChallenges: (waypointId: string) => ['waypoint', waypointId, 'challenges'] as const,
   myProgress: ['me', 'progress'] as const,
+  myWaypointProgress: ['me', 'waypoint-progress'] as const,
   myAnswers: (limit: number, offset: number) => ['me', 'answers', limit, offset] as const,
   myRewards: (limit: number, offset: number) => ['me', 'rewards', limit, offset] as const,
   leaderboard: (cityId: string) => ['city', cityId, 'leaderboard'] as const,

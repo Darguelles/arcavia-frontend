@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Map as LeafletMap } from 'leaflet'
 import { MapView, type MapWaypoint } from '../components/MapView'
+import type { WaypointStatus } from '../components/waypointStatus'
 import { WaypointListItem } from '../components/WaypointListItem'
 import {
   CategoryGlyph,
@@ -13,11 +14,13 @@ import { SecondaryButton } from '../components/SecondaryButton'
 import { LoadingState, ErrorState } from '../components/states'
 import { cn } from '../lib/utils'
 import { haversineMeters, formatDistance } from '../lib/geo'
+import { orderByNearestNeighbor } from '../lib/route'
 import { useMissionDetail } from '../api/missions'
+import { useMyWaypointProgress } from '../api/gameplay'
 import { useWalkingRoute } from '../api/routing'
 import { useUserLocation } from '../lib/useUserLocation'
 import { useCitySessionStore } from '../stores/citySessionStore'
-import type { MissionDetail, WaypointInMission } from '../types/api'
+import type { LatLng, MissionDetail, WaypointInMission } from '../types/api'
 
 // Figma's floating-control drop shadow.
 const CONTROL_SHADOW = 'shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]'
@@ -50,15 +53,22 @@ export function PhaseItinerary() {
   // backend traffic. Coarse/battery-friendly; the high-accuracy watch is the
   // check-in screen's job.
   const { location: userLocation } = useUserLocation()
+  // Per-waypoint completion — colours pins and lets the mission route skip
+  // points the player already finished (so they never walk somewhere twice).
+  const { data: wpProgress } = useMyWaypointProgress()
   const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(waypointId ?? null)
-  // The waypoint the player is currently walking toward. The router draws a
-  // street-following path; while it loads / if it fails we fall back to a
-  // straight guide line. Cleared with the route chip.
+  // Wayfinding route: 'single' walks to one tapped point; 'mission' walks the
+  // whole mission through its pending points, nearest-first from the player. The
+  // router draws a street-following path; while it loads / if it fails we fall
+  // back to straight lines between the stops.
+  const [routeMode, setRouteMode] = useState<'none' | 'single' | 'mission'>('none')
   const [routingWaypointId, setRoutingWaypointId] = useState<string | null>(null)
   const [routeGeometry, setRouteGeometry] = useState<[number, number][] | null>(null)
   const [routeMeta, setRouteMeta] = useState<{ distance_m: number; duration_s: number } | null>(
     null
   )
+  const [fallbackLine, setFallbackLine] = useState<[number, number][] | null>(null)
+  const [missionStops, setMissionStops] = useState(0)
   const [routeFailed, setRouteFailed] = useState(false)
   const walkingRoute = useWalkingRoute()
   // Which phase's list is expanded. Starts null so BOTH phases load collapsed —
@@ -90,6 +100,14 @@ export function PhaseItinerary() {
   const glyphById = new Map(categories.map((c) => [c.id, c.glyph]))
   const isVisible = (w: WaypointInMission) => !hiddenCategoryIds.has(w.category_id)
 
+  const statusById = new Map<string, WaypointStatus>(
+    (wpProgress?.items ?? []).map((i) => [i.waypoint_id, i.status])
+  )
+  const completedIds = new Set(
+    (wpProgress?.items ?? []).filter((i) => i.status === 'completed').map((i) => i.waypoint_id)
+  )
+  const waypointStatus = (id: string): WaypointStatus => statusById.get(id) ?? 'todo'
+
   const toggleCategory = (id: string) => {
     setHiddenCategoryIds((prev) => {
       const next = new Set(prev)
@@ -104,7 +122,7 @@ export function PhaseItinerary() {
   const mapWaypoints: MapWaypoint[] = (activePhase?.waypoints ?? [])
     .map((w, i) => ({
       ...w,
-      status: 'todo' as const, // see components/waypointStatus.ts — API gap
+      status: waypointStatus(w.id),
       order: i + 1,
       glyph: glyphById.get(w.category_id),
     }))
@@ -113,19 +131,12 @@ export function PhaseItinerary() {
   const selectedWaypoint =
     selectedWaypointId != null ? findWaypoint(mission, selectedWaypointId) : undefined
 
-  // Active wayfinding target. The polyline drawn on the map is the router's
-  // street path when we have it, else a straight fallback while it loads / if
-  // routing is unavailable — both only exist with a live position to draw from.
   const routingWaypoint =
     routingWaypointId != null ? findWaypoint(mission, routingWaypointId) : undefined
-  const straightLine: [number, number][] | null =
-    userLocation && routingWaypoint
-      ? [
-          [userLocation.lat, userLocation.lng],
-          [routingWaypoint.lat, routingWaypoint.lng],
-        ]
-      : null
-  const routeLine = routeGeometry ?? straightLine
+  // The polyline drawn on the map: the router's street path when we have it,
+  // else the straight fallback through the same stops while it loads / if
+  // routing is unavailable.
+  const routeLine = routeGeometry ?? fallbackLine
 
   // Single-open accordion that can also be all-closed: tapping the open phase
   // collapses it; tapping a closed one opens it (and points the map at it).
@@ -160,14 +171,14 @@ export function PhaseItinerary() {
     }
   }
 
-  // Fetch a street-following walking route from the player to a waypoint, and
+  // Fetch a street-following walking route through an ordered list of stops and
   // frame it. Falls back to (and frames) the straight line if routing fails.
-  const fetchRoute = (wp: WaypointInMission) => {
-    if (!userLocation) return
+  const runRoute = (points: LatLng[]) => {
+    const line = points.map((p) => [p.lat, p.lng] as [number, number])
+    setFallbackLine(line)
     setRouteFailed(false)
-    const from = { lat: userLocation.lat, lng: userLocation.lng }
     walkingRoute.mutate(
-      { from, to: { lat: wp.lat, lng: wp.lng } },
+      { points },
       {
         onSuccess: (r) => {
           const geometry = r.geometry as [number, number][]
@@ -181,32 +192,83 @@ export function PhaseItinerary() {
           setRouteFailed(true)
           setRouteGeometry(null)
           setRouteMeta(null)
-          mapRef.current?.fitBounds(
-            [
-              [from.lat, from.lng],
-              [wp.lat, wp.lng],
-            ],
-            { padding: [64, 64], maxZoom: 17 }
-          )
+          if (mapRef.current && line.length >= 2) {
+            mapRef.current.fitBounds(line, { padding: [64, 64], maxZoom: 17 })
+          }
         },
       }
     )
   }
 
-  const startRoute = (wp: WaypointInMission) => {
-    setRoutingWaypointId(wp.id)
+  // Single-waypoint route (tapped from the popover's "Cómo llegar").
+  const startSingleRoute = (wp: WaypointInMission) => {
+    if (!userLocation) return
     setSelectedWaypointId(null)
+    setRouteMode('single')
+    setRoutingWaypointId(wp.id)
     setRouteGeometry(null)
     setRouteMeta(null)
-    fetchRoute(wp)
+    runRoute([
+      { lat: userLocation.lat, lng: userLocation.lng },
+      { lat: wp.lat, lng: wp.lng },
+    ])
+  }
+
+  // The still-pending waypoints of the whole mission, honouring the category
+  // filter and excluding ones already completed, ordered nearest-first from the
+  // player. The first stop is therefore the closest pending point.
+  const missionRoutePoints = (): LatLng[] => {
+    if (!userLocation) return []
+    const pending = mission.phases
+      .flatMap((p) => p.waypoints)
+      .filter((w) => isVisible(w) && !completedIds.has(w.id))
+    const ordered = orderByNearestNeighbor(
+      { lat: userLocation.lat, lng: userLocation.lng },
+      pending.map((w) => ({ id: w.id, lat: w.lat, lng: w.lng }))
+    )
+    return ordered.map((w) => ({ lat: w.lat, lng: w.lng }))
+  }
+
+  const computeMissionRoute = () => {
+    const stops = missionRoutePoints()
+    setMissionStops(stops.length)
+    if (!userLocation || stops.length === 0) {
+      setRouteGeometry(null)
+      setRouteMeta(null)
+      setFallbackLine(null)
+      return
+    }
+    runRoute([{ lat: userLocation.lat, lng: userLocation.lng }, ...stops])
   }
 
   const stopRoute = () => {
+    setRouteMode('none')
     setRoutingWaypointId(null)
     setRouteGeometry(null)
     setRouteMeta(null)
+    setFallbackLine(null)
     setRouteFailed(false)
+    setMissionStops(0)
   }
+
+  const recalcRoute = () => {
+    if (routeMode === 'mission') computeMissionRoute()
+    else if (routeMode === 'single' && routingWaypoint) startSingleRoute(routingWaypoint)
+  }
+
+  // Recompute the mission route whenever the category filter or completion set
+  // changes (so toggling Cultural/Patrocinador re-plans), or once a live
+  // position first arrives. Intentionally NOT keyed on userLocation identity —
+  // that would re-route on every GPS tick; use "Recalcular" to refresh from the
+  // current spot.
+  const hiddenKey = [...hiddenCategoryIds].sort().join(',')
+  const completedKey = [...completedIds].sort().join(',')
+  const hasUserLocation = userLocation != null
+  useEffect(() => {
+    if (routeMode !== 'mission') return
+    computeMissionRoute()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeMode, hiddenKey, completedKey, hasUserLocation])
 
   return (
     <div className="relative min-h-dvh w-full max-w-[402px] overflow-hidden bg-ink">
@@ -327,10 +389,10 @@ export function PhaseItinerary() {
           </div>
         )}
 
-        {/* Active wayfinding chip: which point you're walking toward, the route's
-            walking distance + time (or a status), a recalcular control, and a
-            dismiss. Appears once "Cómo llegar" is tapped. */}
-        {routingWaypoint && (
+        {/* Active wayfinding chip (single point or the whole mission): the label,
+            the route's walking distance + time (or a status), a recalcular
+            control, and a dismiss. */}
+        {routeMode !== 'none' && (
           <div className="flex justify-center">
             <div
               className={`pointer-events-auto flex items-center gap-3 rounded-full bg-ink-card px-4 py-2 ${CONTROL_SHADOW}`}
@@ -339,12 +401,15 @@ export function PhaseItinerary() {
                 ➤
               </span>
               <span className="text-[13px] font-medium text-cream">
-                {routingWaypoint.name}
+                {routeMode === 'mission' ? 'Ruta de la misión' : (routingWaypoint?.name ?? 'Ruta')}
                 {walkingRoute.isPending ? (
                   <span className="text-cream/60"> · calculando…</span>
+                ) : routeMode === 'mission' && missionStops === 0 ? (
+                  <span className="text-cream/60"> · sin puntos pendientes</span>
                 ) : routeMeta ? (
                   <span className="text-cream/60">
                     {' · '}
+                    {routeMode === 'mission' ? `${missionStops} paradas · ` : ''}
                     {formatDistance(routeMeta.distance_m)} · {formatWalkTime(routeMeta.duration_s)}
                   </span>
                 ) : routeFailed ? (
@@ -353,7 +418,7 @@ export function PhaseItinerary() {
               </span>
               <button
                 type="button"
-                onClick={() => routingWaypoint && fetchRoute(routingWaypoint)}
+                onClick={recalcRoute}
                 disabled={walkingRoute.isPending || !userLocation}
                 aria-label="Recalcular ruta"
                 className="flex h-5 w-5 items-center justify-center rounded-full text-cream/60 hover:text-cream disabled:opacity-40"
@@ -376,6 +441,24 @@ export function PhaseItinerary() {
       {/* Collapsible phase accordion, floating over the map */}
       <div className="absolute inset-x-0 bottom-0 z-10 max-h-[70dvh] overflow-y-auto rounded-t-[20px] bg-ink px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-3 shadow-[0px_-6px_20px_0px_rgba(0,0,0,0.45)]">
         <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-gold/60" />
+
+        {/* Whole-mission route: walk every pending point, nearest-first from
+            here. Recalculates when the category filter changes. */}
+        <button
+          type="button"
+          onClick={() => (routeMode === 'mission' ? stopRoute() : setRouteMode('mission'))}
+          disabled={!userLocation}
+          title={!userLocation ? 'Activa tu ubicación para trazar la ruta' : undefined}
+          className={cn(
+            'mb-3 flex w-full items-center justify-center gap-2 rounded-[5px] py-2.5 text-[14px] font-semibold transition-colors disabled:opacity-40',
+            routeMode === 'mission'
+              ? 'bg-ink-card text-cream'
+              : 'bg-gold text-black hover:bg-gold-soft'
+          )}
+        >
+          <span aria-hidden>🧭</span>
+          {routeMode === 'mission' ? 'Ocultar ruta de la misión' : 'Ruta de la misión'}
+        </button>
 
         {mission.phases.map((phase) => {
           const open = phase.id === openPhaseId
@@ -403,6 +486,7 @@ export function PhaseItinerary() {
                     <li key={w.id}>
                       <WaypointListItem
                         waypoint={w}
+                        status={waypointStatus(w.id)}
                         glyphVariant={glyphById.get(w.category_id)}
                         onClick={() => setSelectedWaypointId(w.id)}
                       />
@@ -447,7 +531,7 @@ export function PhaseItinerary() {
               },
             })
           }
-          onRoute={() => startRoute(selectedWaypoint)}
+          onRoute={() => startSingleRoute(selectedWaypoint)}
           onClose={() => setSelectedWaypointId(null)}
         />
       )}

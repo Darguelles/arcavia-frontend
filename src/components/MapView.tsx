@@ -65,7 +65,30 @@ export function MapView({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
       {route && route.length >= 2 && (
-        <Polyline positions={route} pathOptions={{ color: '#e6b800', weight: 4, opacity: 0.9 }} />
+        <>
+          {/* Dark casing underneath, then the bold gold route on top — the
+              casing gives contrast so the line reads clearly over any basemap. */}
+          <Polyline
+            positions={route}
+            pathOptions={{
+              color: '#3d2f00',
+              weight: 10,
+              opacity: 0.45,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+          <Polyline
+            positions={route}
+            pathOptions={{
+              color: '#e6b800',
+              weight: 6,
+              opacity: 1,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+        </>
       )}
       {waypoints.map((wp) => (
         <WaypointMarker key={wp.id} waypoint={wp} onSelect={onSelect} />

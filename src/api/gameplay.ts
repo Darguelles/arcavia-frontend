@@ -1,7 +1,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { apiClient } from './client'
 import { queryClient, queryKeys } from './queryClient'
-import type { AnswerResponse, ChallengePublic, MyProgressResponse, UUID } from '../types/api'
+import type {
+  AnswerResponse,
+  ChallengePublic,
+  MyProgressResponse,
+  UUID,
+  WaypointProgressResponse,
+} from '../types/api'
 
 const V1 = '/api/v1'
 
@@ -38,5 +44,14 @@ export function useMyProgress() {
   return useQuery({
     queryKey: queryKeys.myProgress,
     queryFn: () => apiClient.get<MyProgressResponse>(`${V1}/me/progress`),
+  })
+}
+
+/** Per-waypoint status — colours pins and lets the itinerary route only through
+ * still-pending waypoints. */
+export function useMyWaypointProgress() {
+  return useQuery({
+    queryKey: queryKeys.myWaypointProgress,
+    queryFn: () => apiClient.get<WaypointProgressResponse>(`${V1}/me/waypoint-progress`),
   })
 }

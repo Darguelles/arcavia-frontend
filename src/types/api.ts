@@ -308,8 +308,9 @@ export interface LatLng {
 }
 
 export interface RouteRequest {
-  from: LatLng
-  to: LatLng
+  // ordered stops the route passes through (≥2). Two points = A→B; more = a
+  // multi-stop mission route in the given order.
+  points: LatLng[]
 }
 
 export interface WalkingRoute {
@@ -317,6 +318,18 @@ export interface WalkingRoute {
   geometry: [number, number][]
   distance_m: number
   duration_s: number
+}
+
+// GET /me/waypoint-progress — per-waypoint status, for pin colour + routing
+// only through still-pending waypoints.
+export interface WaypointProgressItem {
+  waypoint_id: UUID
+  status: 'in_progress' | 'completed'
+  completed_at: ISODateTime | null
+}
+
+export interface WaypointProgressResponse {
+  items: WaypointProgressItem[]
 }
 
 export interface AnswerRequest {
