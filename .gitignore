@@ -8,3 +8,5 @@ playwright-report
 test-results
 .vite
 dev-dist
+# Self-signed dev TLS certs (local only — never commit)
+certs

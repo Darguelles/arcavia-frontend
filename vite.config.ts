@@ -1,8 +1,29 @@
 /// <reference types="vitest/config" />
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+// Optional HTTPS for the dev server — needed to test geolocation/camera on a
+// phone (mobile browsers refuse them on a plain-http LAN IP). Off by default so
+// desktop dev stays http; enable with VITE_DEV_HTTPS=true + a cert in ./certs
+// (see README). The API is reached same-origin via the /api proxy below, so an
+// https page never hits an http endpoint (no mixed content).
+const certDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'certs')
+const keyPath = path.join(certDir, 'dev-key.pem')
+const certPath = path.join(certDir, 'dev-cert.pem')
+const httpsEnabled = process.env.VITE_DEV_HTTPS === 'true' && fs.existsSync(keyPath)
+const httpsConfig = httpsEnabled
+  ? { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }
+  : undefined
+
+// In Docker the API is another compose service (`api`); on the host it's
+// localhost. Server-side proxy hop, so http here is fine even when the page is
+// https.
+const proxyTarget = process.env.VITE_DEV_PROXY_TARGET ?? 'http://localhost:8000'
 
 export default defineConfig({
   plugins: [
@@ -45,10 +66,13 @@ export default defineConfig({
     }),
   ],
   server: {
+    host: true,
+    https: httpsConfig,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: proxyTarget,
         changeOrigin: true,
+        secure: false,
       },
     },
   },

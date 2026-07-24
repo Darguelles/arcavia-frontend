@@ -182,22 +182,28 @@ function buildPinIcon(
   glyph?: CategoryGlyphVariant
 ): L.DivIcon {
   const color = STATUS_COLOR[status]
+  // Category glyph styled like the filter chips: a gold diamond (#b19071 →
+  // text-gold) on a light disc (#f3efe6), so it reads the same on the map as in
+  // the chips. The status colour stays as a band of teardrop body around the
+  // disc. The order-number fallback keeps its dark-on-teardrop treatment.
   const symbol = glyph
-    ? `<span style="transform:rotate(45deg);display:flex;line-height:0;">${categoryGlyphSvg(glyph, { size: 14, color: '#1f1a1e' })}</span>`
+    ? `<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#f3efe6;">
+         <span style="transform:rotate(45deg);display:flex;line-height:0;">${categoryGlyphSvg(glyph, { size: 20, color: '#b19071' })}</span>
+       </span>`
     : `<span style="transform:rotate(45deg);color:#1f1a1e;font-weight:700;font-size:12px;font-family:Montserrat,sans-serif;">${order}</span>`
   return L.divIcon({
     className: 'arcavia-pin',
     html: `
       <div style="
         display:flex;align-items:center;justify-content:center;
-        width:30px;height:30px;border-radius:50% 50% 50% 0;
+        width:34px;height:34px;border-radius:50% 50% 50% 0;
         transform:rotate(-45deg);
         background:${color};border:2px solid #ffebd9;
         box-shadow:0 2px 6px rgba(0,0,0,.4);">
         ${symbol}
       </div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 30],
+    iconSize: [34, 34],
+    iconAnchor: [17, 34],
   })
 }
 

@@ -24,7 +24,29 @@ npm run dev        # http://localhost:5173, proxies /api → http://localhost:80
 
 Run the backend (`arcavia-api`) on `:8000` for real data. Camera + geolocation
 need a **secure context** — `localhost` works; `http://192.168.x.x` over LAN does
-**not**. Use a tunnel or dev cert to test on a real device (see §9 of the spec).
+**not**. Use the dev-HTTPS setup below to test on a real device (see §9 of the spec).
+
+### Testing on a phone (same Wi-Fi) with geolocation
+
+Mobile browsers refuse geolocation/camera on a plain-`http` LAN IP, so the dev
+server can serve **https** with a self-signed cert:
+
+1. Generate a cert whose SAN includes your Mac's LAN IP (find it with
+   `ipconfig getifaddr en0`):
+   ```bash
+   cd arcavia-frontend && mkdir -p certs
+   openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
+     -keyout certs/dev-key.pem -out certs/dev-cert.pem -subj "/CN=arcavia-dev" \
+     -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:<YOUR_LAN_IP>"
+   ```
+   `certs/` is gitignored — never commit it.
+2. Start the server with HTTPS enabled: `VITE_DEV_HTTPS=true npm run dev`
+   (the root `docker compose` setup reads this from a `.env` — see the repo-root
+   `.env` example).
+3. On the phone open `https://<YOUR_LAN_IP>:3000` and accept the certificate
+   warning once. The app calls `/api` **same-origin** (Vite proxies it to the
+   backend), so an https page never hits an http endpoint — and the Secure auth
+   cookie works, which it can't over plain http.
 
 ### Scripts
 

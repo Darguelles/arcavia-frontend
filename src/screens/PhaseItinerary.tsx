@@ -52,7 +52,11 @@ export function PhaseItinerary() {
   // Live "you are here" position for wayfinding (spec §10) — display only, no
   // backend traffic. Coarse/battery-friendly; the high-accuracy watch is the
   // check-in screen's job.
-  const { location: userLocation } = useUserLocation()
+  const {
+    location: userLocation,
+    status: locationStatus,
+    request: requestLocation,
+  } = useUserLocation()
   // Per-waypoint completion — colours pins and lets the mission route skip
   // points the player already finished (so they never walk somewhere twice).
   const { data: wpProgress } = useMyWaypointProgress()
@@ -379,13 +383,52 @@ export function PhaseItinerary() {
                 >
                   <CategoryGlyph
                     variant={cat.glyph}
-                    size={11}
+                    size={16}
                     className={active ? 'text-gold' : 'text-cream/50'}
                   />
                   {cat.name}
                 </button>
               )
             })}
+          </div>
+        )}
+
+        {/* Ask the player to enable location on open, when we don't have it.
+            The message is tailored to *why* it's unavailable so the guidance is
+            actionable (insecure connection vs. blocked permission). */}
+        {!userLocation && locationStatus !== 'granted' && (
+          <div className="flex justify-center">
+            <div
+              className={`pointer-events-auto flex max-w-[340px] flex-col items-center gap-2 rounded-[10px] bg-[#f3efe6] px-4 py-3 text-center text-ink ${CONTROL_SHADOW}`}
+            >
+              {locationStatus === 'insecure' ? (
+                <p className="text-[13px]">
+                  📍 Para ver tu ubicación en el móvil, abre la app con una conexión segura (
+                  <span className="font-semibold">https://</span>). En red local, <code>http</code>{' '}
+                  no permite la ubicación.
+                </p>
+              ) : locationStatus === 'denied' ? (
+                <p className="text-[13px]">
+                  📍 El permiso de ubicación está bloqueado. Actívalo en los ajustes del navegador y
+                  recarga la página.
+                </p>
+              ) : locationStatus === 'unsupported' ? (
+                <p className="text-[13px]">Tu navegador no permite ver tu ubicación.</p>
+              ) : (
+                <>
+                  <p className="text-[13px]">
+                    Activa tu ubicación para verte en el mapa y trazar la ruta de la misión.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={requestLocation}
+                    className="rounded-[5px] bg-gold px-4 py-2 text-[14px] font-semibold text-black hover:bg-gold-soft"
+                  >
+                    Activar ubicación
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
 
