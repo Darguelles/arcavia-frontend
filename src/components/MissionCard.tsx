@@ -10,14 +10,15 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
 interface MissionCardProps {
   mission: MissionCardType
   index?: number
-  // The API's MissionCard has no image field yet — pass one when it does.
+  // Cover image from the API (mission.image_url). Optional so callers can omit
+  // it; a warm gradient stands in when it's absent/null.
   imageUrl?: string | null
   onClick?: () => void
 }
 
 /**
  * Mission list card (spec §6/§8.4): image, name, difficulty, explorers_count,
- * reward_points. Until the API returns a mission image, a warm gradient stands
+ * reward_points. When the mission has no uploaded image, a warm gradient stands
  * in for the photo so the layout holds.
  */
 export function MissionCard({ mission, index, imageUrl, onClick }: MissionCardProps) {

@@ -25,6 +25,7 @@ const { mission } = vi.hoisted(() => {
       city_id: 'c1',
       name: 'Plaza Mayor',
       description: '',
+      image_url: null,
       translations: {},
       difficulty: 'baja',
       reward_points: 1000,

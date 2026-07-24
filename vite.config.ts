@@ -74,6 +74,15 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      // Same same-origin hop for locally-stored media (mission covers), so an
+      // https page on a phone loads /media/… over its own origin instead of a
+      // wrong-host, mixed-content http://localhost URL. No-op in prod (S3 URLs
+      // are absolute and bypass the dev server entirely).
+      '/media': {
+        target: proxyTarget,
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   test: {

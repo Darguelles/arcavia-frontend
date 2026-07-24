@@ -134,6 +134,8 @@ export interface MissionCard {
   city_id: UUID
   name: string
   description: string
+  // Absolute URL of the mission cover image, or null → card shows the gradient.
+  image_url: string | null
   difficulty: Difficulty
   reward_points: number
   estimated_time_minutes: number
@@ -188,6 +190,8 @@ export interface MissionDetail {
   city_id: UUID
   name: string
   description: string
+  // Absolute URL of the mission cover image, or null → hero shows the gradient.
+  image_url: string | null
   translations: Translations
   difficulty: Difficulty
   reward_points: number

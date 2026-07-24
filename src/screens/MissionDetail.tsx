@@ -82,7 +82,15 @@ export function MissionDetail() {
 function Hero({ mission }: { mission: MissionDetailType }) {
   return (
     <div className="relative h-[300px] w-full overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-ink-card via-[#5a4a3d] to-gold/60" />
+      {mission.image_url ? (
+        <img
+          src={mission.image_url}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-ink-card via-[#5a4a3d] to-gold/60" />
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
       <div className="absolute inset-x-5 bottom-4">
         <p className="text-[14px] text-cream/85">{DIFFICULTY_LABEL[mission.difficulty]}</p>

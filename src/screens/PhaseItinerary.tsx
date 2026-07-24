@@ -44,9 +44,40 @@ export function PhaseItinerary() {
     phaseId?: string
     waypointId?: string
   }>()
+  const { data: mission, isLoading, isError, refetch } = useMissionDetail(missionId)
+
+  if (isLoading) return <LoadingState label="Cargando itinerario…" />
+  if (isError || !mission) {
+    return (
+      <div className="min-h-dvh w-full max-w-[402px] bg-ink">
+        <ErrorState message="No pudimos cargar el itinerario." onRetry={() => refetch()} />
+      </div>
+    )
+  }
+
+  return <ItineraryView mission={mission} phaseId={phaseId} waypointId={waypointId} />
+}
+
+/*
+ * The itinerary UI proper. Split out from PhaseItinerary so the gameplay hooks
+ * below (route state, the mission-route effect, geolocation, waypoint progress)
+ * always run — and only ever with a loaded mission. When these hooks lived
+ * behind PhaseItinerary's loading/error early-returns, the hook count changed
+ * between the loading render and the loaded render, crashing the screen on a
+ * cold reload (mission not yet cached) with "rendered more hooks than during
+ * the previous render".
+ */
+function ItineraryView({
+  mission,
+  phaseId,
+  waypointId,
+}: {
+  mission: MissionDetail
+  phaseId?: string
+  waypointId?: string
+}) {
   const navigate = useNavigate()
   const city = useCitySessionStore((s) => s.city)
-  const { data: mission, isLoading, isError, refetch } = useMissionDetail(missionId)
 
   const mapRef = useRef<LeafletMap | null>(null)
   // Live "you are here" position for wayfinding (spec §10) — display only, no
@@ -80,15 +111,6 @@ export function PhaseItinerary() {
   const [openPhaseId, setOpenPhaseId] = useState<string | null>(null)
   // Categories the player has toggled OFF; empty = show everything (the default).
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState<Set<string>>(() => new Set())
-
-  if (isLoading) return <LoadingState label="Cargando itinerario…" />
-  if (isError || !mission) {
-    return (
-      <div className="min-h-dvh w-full max-w-[402px] bg-ink">
-        <ErrorState message="No pudimos cargar el itinerario." onRetry={() => refetch()} />
-      </div>
-    )
-  }
 
   // The phase the map centers on: the expanded one, else the URL's phase (so a
   // deep-link from a challenge still lands on its route), else the first phase.

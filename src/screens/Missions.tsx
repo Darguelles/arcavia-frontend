@@ -81,6 +81,7 @@ function MissionsList() {
             key={mission.id}
             mission={mission}
             index={i}
+            imageUrl={mission.image_url}
             onClick={() => navigate(`/missions/${mission.id}`)}
           />
         ))}

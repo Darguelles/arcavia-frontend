@@ -10,6 +10,7 @@ const mission: MissionCardType = {
   city_id: 'city1',
   name: 'Barranco',
   description: 'Explora Barranco',
+  image_url: null,
   difficulty: 'alta',
   reward_points: 500,
   estimated_time_minutes: 90,
